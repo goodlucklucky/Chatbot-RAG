@@ -10,13 +10,14 @@ from langgraph.graph import START, StateGraph
 from typing_extensions import List, TypedDict
 
 from langchain.chat_models import init_chat_model
-from langchain_ollama import OllamaEmbeddings
+# from langchain_ollama import OllamaEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from langchain_core.vectorstores import InMemoryVectorStore
 
-if not os.environ.get("GROQ_API_KEY"):
-  os.environ["GROQ_API_KEY"] = getpass.getpass("Enter API key for Groq: ")
-llm = init_chat_model("llama3-8b-8192", model_provider="groq")
-embeddings = OllamaEmbeddings(model="mxbai-embed-large")
+# llm = init_chat_model("llama3-8b-8192", model_provider="groq")
+llm = init_chat_model("gpt-4o-mini", model_provider="openai")
+# embeddings = OllamaEmbeddings(model="mxbai-embed-large")
+embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
 vector_store = InMemoryVectorStore(embeddings)
 
 print("Loading and chunking contents of the blog")
