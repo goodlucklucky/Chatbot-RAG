@@ -8,7 +8,7 @@ import QuestionItem from "./components/QuestionItem";
 import AnswerItem from "./components/AnswerItem";
 
 export default function Home() {
-  const [qaList, setQAList] = useState([]);
+  const [qaList, setQAList] = useState<{ q: string; a: unknown }[]>([]);
 
   const onSubmit = (que: string) => {
     const bodyFormData = new FormData();
@@ -25,8 +25,10 @@ export default function Home() {
         <div className="overflow-y-auto h-full flex flex-col gap-[32px]">
           {qaList.map((item, index) => (
             <>
-              <QuestionItem data={item['q']}></QuestionItem>
-              <AnswerItem data={item['a']}></AnswerItem>
+              <div key={index} className="gap-[32px]">
+                <QuestionItem data={item["q"]}></QuestionItem>
+                <AnswerItem data={item["a"]}></AnswerItem>
+              </div>
             </>
           ))}
         </div>
