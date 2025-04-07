@@ -8,7 +8,7 @@ import QuestionItem from "./components/QuestionItem";
 import AnswerItem from "./components/AnswerItem";
 
 export default function Home() {
-  const [qaList, setQAList] = useState<{ q: string; a: unknown }[]>([]);
+  const [qaList, setQAList] = useState<{ q: string; a: string }[]>([]);
 
   const onSubmit = (que: string) => {
     const bodyFormData = new FormData();
