@@ -20,14 +20,16 @@ export default function Home() {
   };
 
   return (
-    <div className="grid grid-rows-[1fr_20px_20px] items-end justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="w-full max-w-3xl mx-auto flex flex-col gap-[32px] row-start-1 items-center sm:items-start overflow-auto">
-        {qaList.map((item, index) => (
-          <>
-            <QuestionItem data={item['q']}></QuestionItem>
-            <AnswerItem data={item['a']}></AnswerItem>
-          </>
-        ))}
+    <div className="grid grid-rows-[1fr_20px_20px] items-end justify-items-center min-h-screen max-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
+      <main className="w-full h-full max-w-3xl mx-auto row-start-1 overflow-hidden">
+        <div className="overflow-y-auto h-full flex flex-col gap-[32px]">
+          {qaList.map((item, index) => (
+            <>
+              <QuestionItem data={item['q']}></QuestionItem>
+              <AnswerItem data={item['a']}></AnswerItem>
+            </>
+          ))}
+        </div>
       </main>
       <div className="w-full flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
         <PromptInput onSubmit={onSubmit}></PromptInput>
