@@ -5,7 +5,7 @@ from server import invoke
 app = Flask(__name__)
 CORS(app)
 
-@app.route("/chat", methods = ['POST'])
+@app.route("/api/chat", methods = ['POST'])
 def chat():
     if request.method == 'POST':
         print(invoke({"question": request.form['question']}))
