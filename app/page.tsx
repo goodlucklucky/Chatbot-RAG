@@ -13,7 +13,7 @@ export default function Home() {
   const onSubmit = (que: string) => {
     const bodyFormData = new FormData();
     bodyFormData.append("question", que);
-    axios.post("http://127.0.0.1:5000/api/chat", bodyFormData).then((res) => {
+    axios.post("https://chatbot-rag-e7en.onrender.com/api/chat", bodyFormData).then((res) => {
       console.log(res.data);
       setQAList([...qaList, { q: que, a: res.data }]);
     });
