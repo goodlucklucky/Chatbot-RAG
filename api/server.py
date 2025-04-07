@@ -8,6 +8,18 @@ from langchain_core.vectorstores import InMemoryVectorStore
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langgraph.graph import START, StateGraph
 from typing_extensions import Annotated, List, TypedDict
+from langchain.chat_models import init_chat_model
+# from langchain_ollama import OllamaEmbeddings
+from langchain_openai import OpenAIEmbeddings
+from langchain_core.vectorstores import InMemoryVectorStore
+
+# llm = init_chat_model("llama3-8b-8192", model_provider="groq")
+llm = init_chat_model("gpt-4o-mini", model_provider="openai")
+# embeddings = OllamaEmbeddings(model="mxbai-embed-large")
+embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
+vector_store = InMemoryVectorStore(embeddings)
+
+print("Loading and chunking contents of the blog")
 
 # Load and chunk contents of the blog
 loader = WebBaseLoader(
@@ -37,7 +49,7 @@ for i, document in enumerate(all_splits):
         document.metadata["section"] = "end"
 
 
-# Index chunks
+print("Indexing chunks")
 vector_store = InMemoryVectorStore(embeddings)
 _ = vector_store.add_documents(all_splits)
 
@@ -90,3 +102,7 @@ def generate(state: State):
 graph_builder = StateGraph(State).add_sequence([analyze_query, retrieve, generate])
 graph_builder.add_edge(START, "analyze_query")
 graph = graph_builder.compile()
+
+def invoke(prompt: object):
+    response = graph.invoke(prompt)
+    return response["answer"]
