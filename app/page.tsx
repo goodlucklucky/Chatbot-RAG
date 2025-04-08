@@ -10,21 +10,25 @@ import AnswerItem from "./components/AnswerItem";
 export default function Home() {
   const [qList, setQList] = useState<string[]>([]);
   const [aList, setAList] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   const onSubmit = (que: string, file: File | null) => {
     setQList([...qList, que]);
     const bodyFormData = new FormData();
     bodyFormData.append("question", que);
     if (file) bodyFormData.append("file", file);
+    setIsLoading(true);
     axios
       .post("https://chatbot-rag-e7en.onrender.com/api/chat", bodyFormData)
       .then((res) => {
         console.log(res.data);
         setAList([...aList, res.data]);
+        setIsLoading(false);
       })
       .catch((err) => {
         console.log(err);
         setAList([...aList, "Error occured from server!"]);
+        setIsLoading(false);
       });
   };
 
@@ -41,7 +45,7 @@ export default function Home() {
         </div>
       </main>
       <div className="w-full flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <PromptInput onSubmit={onSubmit}></PromptInput>
+        <PromptInput onSubmit={onSubmit} isLoading={isLoading}></PromptInput>
       </div>
       <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
         <a
