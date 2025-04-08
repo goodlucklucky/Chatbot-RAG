@@ -36,7 +36,7 @@ export default function PromptInput({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const file = e.target.files[0];
-      setFile(file.name); // Set the file name
+      setFile(file); // Set the file name
     }
   };
 
