@@ -4,8 +4,10 @@ import { useState, useRef, useEffect } from "react";
 
 export default function PromptInput({
   onSubmit,
+  isLoading
 }: {
   onSubmit: (que: string, file: File | null) => void;
+  isLoading: boolean
 }) {
   const [input, setInput] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -21,7 +23,7 @@ export default function PromptInput({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() || isLoading) return;
     onSubmit(input.trim(), file);
     setInput("");
     setFile(null);
