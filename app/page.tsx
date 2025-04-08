@@ -17,7 +17,7 @@ export default function Home() {
     bodyFormData.append("question", que);
     if (file) bodyFormData.append("file", file);
     axios
-      .post("http://localhost:5000/api/chat", bodyFormData)
+      .post("https://chatbot-rag-e7en.onrender.com/api/chat", bodyFormData)
       .then((res) => {
         console.log(res.data);
         setAList([...aList, res.data]);
