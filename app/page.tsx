@@ -33,12 +33,10 @@ export default function Home() {
       <main className="w-full h-full max-w-3xl mx-auto row-start-1 overflow-hidden">
         <div className="overflow-y-auto h-full flex flex-col gap-[32px]">
           {qList.map((item, index) => (
-            <>
-              <div key={index} className="gap-[32px]">
-                <QuestionItem data={item}></QuestionItem>
-                <AnswerItem data={aList[index]}></AnswerItem>
-              </div>
-            </>
+            <div key={index} className="gap-[32px]">
+              <QuestionItem data={item}></QuestionItem>
+              <AnswerItem data={aList[index]}></AnswerItem>
+            </div>
           ))}
         </div>
       </main>
