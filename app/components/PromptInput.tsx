@@ -1,9 +1,14 @@
-'use client'
+"use client";
 
 import { useState, useRef, useEffect } from "react";
 
-export default function PromptInput({ onSubmit }: { onSubmit: (value: string) => void }) {
+export default function PromptInput({
+  onSubmit,
+}: {
+  onSubmit: (que: string, file: File | null) => void;
+}) {
   const [input, setInput] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -16,8 +21,9 @@ export default function PromptInput({ onSubmit }: { onSubmit: (value: string) =>
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
-    onSubmit(input.trim())
+    onSubmit(input.trim(), file);
     setInput("");
+    setFile(null);
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto"; // reset height after sending
     }
@@ -45,6 +51,12 @@ export default function PromptInput({ onSubmit }: { onSubmit: (value: string) =>
         onKeyDown={handleKeyDown}
         placeholder="Ask anything"
         className="flex-1 resize-none bg-transparent text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none overflow-auto"
+      />
+      <input
+        type="file"
+        accept=".pdf"
+        onChange={(e) => setFile(e.target.files?.[0] || null)}
+        className="text-sm text-gray-700 dark:text-gray-300"
       />
       <button
         type="submit"

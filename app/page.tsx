@@ -8,26 +8,31 @@ import QuestionItem from "./components/QuestionItem";
 import AnswerItem from "./components/AnswerItem";
 
 export default function Home() {
-  const [qaList, setQAList] = useState<{ q: string; a: string }[]>([]);
+  const [qList, setQList] = useState<string[]>([]);
+  const [aList, setAList] = useState<string[]>([]);
 
-  const onSubmit = (que: string) => {
+  const onSubmit = (que: string, file: File | null) => {
+    setQList([...qList, que]);
     const bodyFormData = new FormData();
     bodyFormData.append("question", que);
-    axios.post("https://chatbot-rag-e7en.onrender.com/api/chat", bodyFormData).then((res) => {
-      console.log(res.data);
-      setQAList([...qaList, { q: que, a: res.data }]);
-    });
+    if (file) bodyFormData.append("file", file);
+    axios
+      .post("http://localhost:5000/api/chat", bodyFormData)
+      .then((res) => {
+        console.log(res.data);
+        setAList([...aList, res.data]);
+      });
   };
 
   return (
     <div className="grid grid-rows-[1fr_20px_20px] items-end justify-items-center min-h-screen max-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
       <main className="w-full h-full max-w-3xl mx-auto row-start-1 overflow-hidden">
         <div className="overflow-y-auto h-full flex flex-col gap-[32px]">
-          {qaList.map((item, index) => (
+          {qList.map((item, index) => (
             <>
               <div key={index} className="gap-[32px]">
-                <QuestionItem data={item["q"]}></QuestionItem>
-                <AnswerItem data={item["a"]}></AnswerItem>
+                <QuestionItem data={item}></QuestionItem>
+                <AnswerItem data={aList[index]}></AnswerItem>
               </div>
             </>
           ))}

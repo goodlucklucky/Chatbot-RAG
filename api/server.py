@@ -1,36 +1,51 @@
 from typing import Literal
-
+import os
+import time
 import bs4
+from uuid import uuid4
 from langchain import hub
-from langchain_community.document_loaders import WebBaseLoader
+from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.documents import Document
-from langchain_core.vectorstores import InMemoryVectorStore
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langgraph.graph import START, StateGraph
 from typing_extensions import Annotated, List, TypedDict
 from langchain.chat_models import init_chat_model
-# from langchain_ollama import OllamaEmbeddings
 from langchain_openai import OpenAIEmbeddings
-from langchain_core.vectorstores import InMemoryVectorStore
+from pinecone import Pinecone, ServerlessSpec
+from langchain_pinecone import PineconeVectorStore
 
-# llm = init_chat_model("llama3-8b-8192", model_provider="groq")
 llm = init_chat_model("gpt-4o-mini", model_provider="openai")
-# embeddings = OllamaEmbeddings(model="mxbai-embed-large")
 embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
-vector_store = InMemoryVectorStore(embeddings)
 
-print("Loading and chunking contents of the blog")
+# Pinecone implementation
+pinecone_api_key = os.environ.get("PINECONE_API_KEY")
 
-# Load and chunk contents of the blog
-loader = WebBaseLoader(
-    web_paths=("https://lilianweng.github.io/posts/2023-06-23-agent/",),
-    bs_kwargs=dict(
-        parse_only=bs4.SoupStrainer(
-            class_=("post-content", "post-title", "post-header")
-        )
-    ),
-)
-docs = loader.load()
+pc = Pinecone(api_key=pinecone_api_key)
+
+index_name = "langchain-test-index"
+existing_indexes = [index_info["name"] for index_info in pc.list_indexes()]
+
+if index_name not in existing_indexes:
+    pc.create_index(
+        name=index_name,
+        dimension=3072,
+        metric="cosine",
+        spec=ServerlessSpec(cloud="aws", region="us-east-1"),
+    )
+    while not pc.describe_index(index_name).status["ready"]:
+        time.sleep(1)
+
+index = pc.Index(index_name)
+
+
+
+if os.path.exists("./data/sample.pdf"):
+    print("Loading and chunking contents of the file")
+    loader = PyPDFLoader("data/sample.pdf")
+    docs = loader.load()
+else:
+    loader = None
+    docs = []
 
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 all_splits = text_splitter.split_documents(docs)
@@ -50,11 +65,12 @@ for i, document in enumerate(all_splits):
 
 
 print("Indexing chunks")
-vector_store = InMemoryVectorStore(embeddings)
-_ = vector_store.add_documents(all_splits)
+vector_store = PineconeVectorStore(index=index, embedding=embeddings)
+uuids = [str(uuid4()) for _ in range(len(all_splits))]
+_ = vector_store.add_documents(documents=all_splits, ids=uuids)
 
 
-# Define schema for search
+print("Define schema for search")
 class Search(TypedDict):
     """Search query."""
 
@@ -87,7 +103,7 @@ def retrieve(state: State):
     query = state["query"]
     retrieved_docs = vector_store.similarity_search(
         query["query"],
-        filter=lambda doc: doc.metadata.get("section") == query["section"],
+        filter={"section": {"$eq": query["section"]}},
     )
     return {"context": retrieved_docs}
 
