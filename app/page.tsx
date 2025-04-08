@@ -13,10 +13,13 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
 
   const onSubmit = (que: string, file: File | null) => {
-    setQList([...qList, que]);
     const bodyFormData = new FormData();
     bodyFormData.append("question", que);
-    if (file) bodyFormData.append("file", file);
+    if (file) {
+      bodyFormData.append("file", file);
+      que = file.name + "\n\n" + que;
+    }
+    setQList([...qList, que]);
     setIsLoading(true);
     axios
       .post("https://chatbot-rag-e7en.onrender.com/api/chat", bodyFormData)
