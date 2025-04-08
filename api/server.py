@@ -1,8 +1,6 @@
 from typing import Literal
 import os
 import time
-import bs4
-from uuid import uuid4
 from langchain import hub
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.documents import Document
@@ -37,38 +35,7 @@ if index_name not in existing_indexes:
 
 index = pc.Index(index_name)
 
-
-
-if os.path.exists("./data/sample.pdf"):
-    print("Loading and chunking contents of the file")
-    loader = PyPDFLoader("data/sample.pdf")
-    docs = loader.load()
-else:
-    loader = None
-    docs = []
-
-text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-all_splits = text_splitter.split_documents(docs)
-
-
-# Update metadata (illustration purposes)
-total_documents = len(all_splits)
-third = total_documents // 3
-
-for i, document in enumerate(all_splits):
-    if i < third:
-        document.metadata["section"] = "beginning"
-    elif i < 2 * third:
-        document.metadata["section"] = "middle"
-    else:
-        document.metadata["section"] = "end"
-
-
-print("Indexing chunks")
 vector_store = PineconeVectorStore(index=index, embedding=embeddings)
-uuids = [str(uuid4()) for _ in range(len(all_splits))]
-_ = vector_store.add_documents(documents=all_splits, ids=uuids)
-
 
 print("Define schema for search")
 class Search(TypedDict):
@@ -120,5 +87,34 @@ graph_builder.add_edge(START, "analyze_query")
 graph = graph_builder.compile()
 
 def invoke(prompt: object):
+    if os.path.exists("./data/sample.pdf"):
+        print("Loading and chunking contents of the file")
+        loader = PyPDFLoader("data/sample.pdf")
+        docs = loader.load()
+    else:
+        loader = None
+        docs = []
+
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    all_splits = text_splitter.split_documents(docs)
+
+
+    # Update metadata (illustration purposes)
+    total_documents = len(all_splits)
+    third = total_documents // 3
+
+    for i, document in enumerate(all_splits):
+        if i < third:
+            document.metadata["section"] = "beginning"
+        elif i < 2 * third:
+            document.metadata["section"] = "middle"
+        else:
+            document.metadata["section"] = "end"
+
+
+    print("Indexing chunks")
+    _ = vector_store.add_documents(all_splits)
+    print("Indexing finished!")
+
     response = graph.invoke(prompt)
     return response["answer"]
