@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import clsx from "clsx";
 
 export default function PromptInput({
   onSubmit,
-  isLoading
+  isLoading,
 }: {
   onSubmit: (que: string, file: File | null) => void;
-  isLoading: boolean
+  isLoading: boolean;
 }) {
   const [input, setInput] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -37,8 +38,8 @@ export default function PromptInput({
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const file = e.target.files[0];
-      setFile(file); // Set the file name
+      const tFile = e.target.files[0];
+      setFile(tFile); // Set the file name
     }
   };
 
@@ -66,7 +67,13 @@ export default function PromptInput({
       <button
         type="button"
         onClick={triggerFileInput}
-        className="p-2 w-10 h-10 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-all"
+        className={clsx(
+          "p-2 w-10 h-10 text-white rounded-full transition-all",
+          {
+            "bg-green-600 hover:bg-green-700": file,
+            "bg-blue-600 hover:bg-blue-700": !file,
+          }
+        )}
       >
         ⇧
       </button>
