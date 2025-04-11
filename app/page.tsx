@@ -46,7 +46,7 @@ export default function Home() {
     setQList([...qList, que]);
     setIsLoading(true);
     axios
-      .post("http://localhost:5000/api/chat", bodyFormData)
+      .post("https://chatbot-rag-e7en.onrender.com/api/chat", bodyFormData)
       .then((res) => {
         console.log(res.data);
         setAList([...aList, res.data]);
