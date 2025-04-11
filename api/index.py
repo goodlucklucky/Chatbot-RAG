@@ -18,7 +18,7 @@ def chat():
         if (file):
             file.save(file_path)
 
-        answer = invoke({"question": question})
+        answer = invoke(question=question, user_id=request.form.get("user_id"), file_path=file_path)
         print(answer)
         return answer
     else:
