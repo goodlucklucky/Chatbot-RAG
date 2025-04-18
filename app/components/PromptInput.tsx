@@ -80,7 +80,7 @@ export default function PromptInput({
       <input
         ref={fileInputRef}
         type="file"
-        accept=".pdf"
+        accept=".pdf, .jpg, .png, .jpeg"
         onChange={handleFileChange}
         className="hidden"
       />

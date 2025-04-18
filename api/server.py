@@ -1,7 +1,11 @@
 import os
+import io
 import time
 import hashlib
-from langchain_community.document_loaders import PyPDFLoader
+import pytesseract
+from PIL import Image
+import pymupdf
+from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage
@@ -21,13 +25,51 @@ pinecone_api_key = os.environ.get("PINECONE_API_KEY")
 
 pc = Pinecone(api_key=pinecone_api_key)
 
+def load_documents(file_path: str):
+    if file_path.lower().endswith(".pdf"):
+        docs = []
+
+        # If there are images in the PDF, process them using OCR
+        print("Extracting images from PDF and performing OCR...")
+        doc = pymupdf.open(file_path)
+        for page_num in range(len(doc)):
+            page = doc.load_page(page_num)
+
+            # Extract text from the page
+            text = page.get_text()
+            docs.append(Document(page_content=text))
+
+            # Extract images from the page
+            img_list = page.get_images(full=True)
+            for img_index, img in enumerate(img_list):
+                xref = img[0]
+                base_image = doc.extract_image(xref)
+                image_bytes = base_image["image"]
+
+                # Convert image bytes to PIL Image for OCR
+                image = Image.open(io.BytesIO(image_bytes))
+
+                # Run OCR on the image
+                text_from_image = pytesseract.image_to_string(image)
+
+                # Optionally, append OCR-extracted text as a document
+                docs.append(Document(page_content=text_from_image))
+
+        return docs
+    elif file_path.lower().endswith((".png", ".jpg", ".jpeg")):
+        print("Using OCR to extract text from image")
+        image = Image.open(file_path)
+        text = pytesseract.image_to_string(image)
+        return [Document(page_content=text)]
+    else:
+        print("Unsupported file format")
+        return []
+
 def invoke_stream(question: str, user_id: str, file_path: str):
     if os.path.exists(file_path):
         print("Loading and chunking contents of the file")
-        loader = PyPDFLoader(file_path)
-        docs = loader.load()
+        docs = load_documents(file_path)
     else:
-        loader = None
         docs = []
 
     index_name = hashlib.md5(user_id.encode()).hexdigest()

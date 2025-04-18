@@ -14,8 +14,10 @@ def chat():
     question = request.form.get("question")
     user_id = request.form.get("user_id")
     file = request.files.get("file")
-    file_path = os.path.join(UPLOAD_FOLDER, "sample.pdf")
+    file_path = ""
     if (file):
+        _, ext = os.path.splitext(file.filename)
+        file_path = os.path.join(UPLOAD_FOLDER, "sample" + ext)
         file.save(file_path)
 
     return Response(invoke_stream(question=question, user_id=user_id, file_path=file_path), mimetype="text/event-stream")
