@@ -44,7 +44,7 @@ export default function Home() {
     }
     setQList([...qList, que]);
     setIsLoading(true);
-    const response = await fetch("https://chatbot-rag-e7en.onrender.com/api/chat", {
+    const response = await fetch(process.env.NEXT_PUBLIC_BACKEND_URL, {
       method: "POST",
       body: bodyFormData,
     });
