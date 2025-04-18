@@ -1,6 +1,9 @@
 import os
 import time
 import hashlib
+import pytesseract
+from PIL import Image
+from langchain_core.documents import Document
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.chat_models import init_chat_model
@@ -21,13 +24,24 @@ pinecone_api_key = os.environ.get("PINECONE_API_KEY")
 
 pc = Pinecone(api_key=pinecone_api_key)
 
+def load_documents(file_path: str):
+    if file_path.lower().endswith(".pdf"):
+        loader = PyPDFLoader(file_path)
+        return loader.load()
+    elif file_path.lower().endswith((".png", ".jpg", ".jpeg")):
+        print("Using OCR to extract text from image")
+        image = Image.open(file_path)
+        text = pytesseract.image_to_string(image)
+        return [Document(page_content=text, metadata={"source": file_path})]
+    else:
+        print("Unsupported file format")
+        return []
+
 def invoke_stream(question: str, user_id: str, file_path: str):
     if os.path.exists(file_path):
         print("Loading and chunking contents of the file")
-        loader = PyPDFLoader(file_path)
-        docs = loader.load()
+        docs = load_documents(file_path)
     else:
-        loader = None
         docs = []
 
     index_name = hashlib.md5(user_id.encode()).hexdigest()
