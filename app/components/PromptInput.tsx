@@ -95,9 +95,14 @@ export default function PromptInput({
       />
       <button
         type="submit"
-        className="p-2 w-10 h-10 bg-white text-black hover:text-black transition-colors rounded-full"
+        className="p-2 w-10 h-10 bg-white text-black hover:text-black transition-colors rounded-full flex items-center justify-center"
+        disabled={isLoading}
       >
-        →
+        {isLoading ? (
+          <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+        ) : (
+          "→"
+        )}
       </button>
     </form>
   );

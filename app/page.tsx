@@ -1,6 +1,5 @@
 "use client";
 
-import axios from "axios";
 import { useState, useEffect, useRef } from "react";
 import PromptInput from "@/app/components/PromptInput";
 import QuestionItem from "./components/QuestionItem";
@@ -27,7 +26,7 @@ export default function Home() {
     }
   }, []);
 
-  const onSubmit = (que: string, file: File | null) => {
+  const onSubmit = async (que: string, file: File | null) => {
     const bodyFormData = new FormData();
     bodyFormData.append("question", que);
     bodyFormData.append("user_id", userName);
@@ -45,18 +44,33 @@ export default function Home() {
     }
     setQList([...qList, que]);
     setIsLoading(true);
-    axios
-      .post("https://chatbot-rag-e7en.onrender.com/api/chat", bodyFormData)
-      .then((res) => {
-        console.log(res.data);
-        setAList([...aList, res.data]);
-        setIsLoading(false);
-      })
-      .catch((err) => {
-        console.log(err);
-        setAList([...aList, "Error occured from server!"]);
-        setIsLoading(false);
+    const response = await fetch("https://chatbot-rag-e7en.onrender.com/api/chat", {
+      method: "POST",
+      body: bodyFormData,
+    });
+
+    if (!response.body) {
+      setAList([...aList, "Error occured from server!"]);
+      setIsLoading(false);
+      return;
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+    let fullText = "";
+
+    setAList([...aList, ""]);
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value);
+      fullText += chunk;
+      setAList((prev) => {
+        const updated = [...prev];
+        updated[updated.length - 1] = fullText;
+        return updated;
       });
+    }
+    setIsLoading(false);
   };
 
   const handleSave = (user_name: string) => {
