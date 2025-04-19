@@ -23,7 +23,7 @@ RUN python -m venv /py && \
 # Set environment variables if needed (e.g., to specify the Tesseract path)
 ENV TESSDATA_PREFIX="/usr/share/tesseract-ocr/4.00/tessdata"
 ENV PATH="/py/bin:$PATH"
-ENV FLASK_APP=/index.py
+ENV FLASK_APP=index.py
 ENV FLASK_RUN_PORT=5000
 
 # Command to run your application

@@ -1,0 +1,5 @@
+api
+.dockerignore
+Dockerfile
+docker-compose.yml
+requirements.txt
