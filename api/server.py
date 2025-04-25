@@ -90,7 +90,51 @@ def save_docx_file(content: str, user_id: str) -> str:
     doc.save(current_doc_path)
 
     # Replace with your actual base URL
-    return f"{os.environ.get('BASE_URL', 'http://localhost:5000')}/downloads/{filename}"
+    return f"{os.environ.get('NEXT_PUBLIC_BACKEND_URL', 'http://localhost:5000')}/downloads/{filename}"
+
+def edit_docx(docx_path, para_idx, new_text):
+    doc = DocxDocument(docx_path)
+    para = doc.paragraphs[para_idx]
+    para.text = new_text
+    doc.save(docx_path)
+
+def classify_intent(agent, prompt: str) -> str:
+    instruction = (
+        "You are an intent classifier for an AI-powered document editing assistant. "
+        "Given the user's chat message and the current workflow, classify the user's intent as one of the following: "
+        "[create_document, upload_document, generate_outline, select_section, suggest_section, confirm_section, "
+        "edit_section, continue_editing, reject_change, accept_change, download_document, export_document, chat].\n"
+        "Definitions:\n"
+        "- create_document: User wants to start a new document from scratch.\n"
+        "- upload_document: User wants to edit current uploading document.\n"
+        "- generate_outline: User wants the AI to generate a draft/outline.\n"
+        "- select_section: User wants to select or retrieve a section of the document.\n"
+        "- suggest_section: AI suggests a section to the user for confirmation.\n"
+        "- confirm_section: User confirms the suggested section is correct and user wants to modify this section in the future.\n"
+        "- edit_section: User wants to edit the currently selected section.\n"
+        "- continue_editing: User wants to make further changes to the current section.\n"
+        "- reject_change: User wants to discard the last proposed change.\n"
+        "- accept_change: User wants to accept and apply the last proposed change.\n"
+        "- download_document: User wants to download the document.\n"
+        "- export_document: User wants to export the document in another format.\n"
+        "- chat: General conversation or unclear intent.\n"
+        "Always respond with ONLY the intent word from the list above. "
+        f"User message: \"{prompt}\""
+    )
+    config = {"configurable": {"thread_id": "intent_classifying"}}
+    response = agent.invoke({"messages": [HumanMessage(content=instruction)]}, config=config)
+    content = response.get("messages")[-1].content
+    # Clean up and return only the intent word (lowercase, no punctuation)
+    intent = content.strip().lower().replace(".", "")
+    # Validate output
+    valid_intents = {
+        "create_document", "upload_document", "generate_outline", "select_section",
+        "suggest_section", "confirm_section", "edit_section", "continue_editing",
+        "reject_change", "accept_change", "download_document", "export_document", "chat"
+    }
+    if intent not in valid_intents:
+        return "chat"
+    return intent
 
 def edit_docx(docx_path, para_idx, new_text):
     doc = DocxDocument(docx_path)
