@@ -180,7 +180,7 @@ pending_edits = {}
 
 def get_docx_sections(docx_path):
     doc = DocxDocument(docx_path)
-    return [(i, para.text) for i, para in enumerate(doc.paragraphs) if para.text.strip()]
+    return [(i, para.text) for i, para in enumerate(doc.paragraphs)]
 
 def build_section_selection_prompt(docx_path, user_prompt):
     sections = get_docx_sections(docx_path)
@@ -329,12 +329,13 @@ def invoke_stream(question: str, user_id: str, file_path: str):
         
         # Apply the edit
         edit_docx(docx_path, edit_info["para_idx"], edit_info["new_text"])
-        download_url = f"{os.environ.get('BASE_URL', 'http://localhost:5000')}/downloads/{user_id}_current.docx"
+        download_url = f"{os.environ.get('NEXT_PUBLIC_BACKEND_URL', 'http://localhost:5000')}/downloads/{user_id}_current.docx"
         download_link = f"\n📄 Download your DOCX({download_url})"
         
         # Clear pending edits
         del pending_edits[user_id]
         yield f"✅ Change applied successfully! The document has been updated.{download_link}"
+        return
 
     # Reject Change Flow 
     if intent == "reject_change":
@@ -358,7 +359,7 @@ def invoke_stream(question: str, user_id: str, file_path: str):
                 download_link = f'\n📄 Download your DOCX({download_url})'
                 full_content = ""
                 yield download_link
-            if "---" == content.strip() and edit_flag:
+            if "---" == content.strip() and edit_flag and doc_writing_flag:
                 doc_writing_flag = False
                 pending_edits[user_id]["new_text"] = full_content
                 full_content = ""
@@ -368,5 +369,5 @@ def invoke_stream(question: str, user_id: str, file_path: str):
                     yield content
             elif "---" != content.strip() or download_flag == False:
                 yield content
-            if download_flag and "---" == content.strip():
+            if (edit_flag or download_flag) and "---" == content.strip():
                 doc_writing_flag = True
