@@ -16,7 +16,7 @@ export default function DocxPreview({ refreshKey }: { refreshKey: boolean }) {
           : "http://localhost:5000";
         const response = await fetch(`${url}/downloads/${localStorage.getItem("userName")}_current.docx`);
         if (!response.ok) {
-          containerRef.current.innerHTML = "<p>No current.docx found.</p>";
+          containerRef.current.innerHTML = "<p>No current preivew</p>";
           return;
         }
         const blob = await response.arrayBuffer();
@@ -32,8 +32,7 @@ export default function DocxPreview({ refreshKey }: { refreshKey: boolean }) {
   return (
     <div
       ref={containerRef}
-      className="rounded shadow overflow-y-visible bg-white"
-      style={{ minHeight: 200, maxHeight: 1000 }}
+      className="rounded shadow overflow-y-visible bg-white min-h-screen max-h-screen"
     />
   );
 }
