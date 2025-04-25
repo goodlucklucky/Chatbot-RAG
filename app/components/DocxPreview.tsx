@@ -16,13 +16,13 @@ export default function DocxPreview({ refreshKey }: { refreshKey: boolean }) {
           : "http://localhost:5000";
         const response = await fetch(`${url}/downloads/${localStorage.getItem("userName")}_current.docx`);
         if (!response.ok) {
-          containerRef.current.innerHTML = "<p>No current preivew</p>";
+          containerRef.current.innerHTML = "<p>No current preview available.</p>";
           return;
         }
         const blob = await response.arrayBuffer();
         containerRef.current.innerHTML = "";
         await renderAsync(blob, containerRef.current);
-      } catch (err) {
+      } catch {
         containerRef.current.innerHTML = "<p>Error loading preview.</p>";
       }
     }
