@@ -1,6 +1,6 @@
-from flask import Flask, request, Response
+from flask import Flask, request, Response, send_from_directory, abort
 from flask_cors import CORS
-from server import invoke_stream
+from api.server import invoke_stream
 import os
 
 app = Flask(__name__)
@@ -21,3 +21,13 @@ def chat():
         file.save(file_path)
 
     return Response(invoke_stream(question=question, user_id=user_id, file_path=file_path), mimetype="text/event-stream")
+
+@app.route("/downloads/<path:filename>")
+def download_file(filename):
+    downloads_dir = os.path.join(os.getcwd(), "downloads")
+    file_path = os.path.join(downloads_dir, filename)
+
+    if not os.path.exists(file_path):
+        abort(404)
+
+    return send_from_directory(downloads_dir, filename, as_attachment=True)

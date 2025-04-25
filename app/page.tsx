@@ -5,6 +5,7 @@ import PromptInput from "@/app/components/PromptInput";
 import QuestionItem from "./components/QuestionItem";
 import AnswerItem from "./components/AnswerItem";
 import NameInput from "./components/NameInputModal";
+import DocxPreview from "./components/DocxPreview";
 
 export default function Home() {
   const [qList, setQList] = useState<string[]>([]);
@@ -45,7 +46,7 @@ export default function Home() {
     setQList([...qList, que]);
     setIsLoading(true);
     const url = process.env.NEXT_PUBLIC_BACKEND_URL ? process.env.NEXT_PUBLIC_BACKEND_URL : "https://chatbot-rag-1-ugmp.onrender.com"
-    const response = await fetch(url, {
+    const response = await fetch(`${url}/api/chat`, {
       method: "POST",
       body: bodyFormData,
     });
@@ -92,43 +93,50 @@ export default function Home() {
   return (
     <>
       {showModal && <NameInput handleSave={handleSave} />}
-      <div className="grid grid-rows-[1fr_20px_20px] items-end justify-items-center min-h-screen max-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-        <main className="w-full h-full max-w-3xl mx-auto row-start-1 overflow-hidden">
-          <div className="overflow-y-auto h-full flex flex-col gap-[32px]">
-            {qList.map((item, index) => (
-              <div key={index} className="gap-[32px]">
-                <QuestionItem data={item}></QuestionItem>
-                <AnswerItem data={aList[index]}></AnswerItem>
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
-            {uploadedDocs.length > 0 && (
-              <div className="w-full max-w-3xl text-sm text-gray-600 mx-auto">
-                <h3 className="font-semibold mb-2">Uploaded Documents</h3>
-                <ul className="space-y-2">
-                  {uploadedDocs.map((doc, i) => (
-                    <li key={i} className="flex justify-between border-b pb-1">
-                      <span>{doc.name}</span>
-                      <span>{(doc.size / 1024).toFixed(1)} KB</span>
-                      <span>{doc.date}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+      <div className="flex flex-row min-h-screen max-h-screen bg-black w-full font-[family-name:var(--font-geist-sans)]">
+        {/* Left: DOCX Preview */}
+        <section className="flex-2 max-w-6xl bg-black rounded shadow-md overflow-auto">
+          <DocxPreview refreshKey={isLoading} />
+        </section>
+        {/* Right: Chat Interface */}
+        <section className="flex-1 min-w-ml overflow-auto flex">
+          <div className="flex-1 flex flex-col max-w-2xl min-w-ml bg-black rounded shadow-md overflow-auto ml-auto mr-auto">
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-8">
+              {qList.map((item, index) => (
+                <div key={index} className="gap-8">
+                  <QuestionItem data={item} />
+                  <AnswerItem data={aList[index]} />
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
+              {uploadedDocs.length > 0 && (
+                <div className="w-full text-sm text-gray-600">
+                  <h3 className="font-semibold mb-2">Uploaded Documents</h3>
+                  <ul className="space-y-2">
+                    {uploadedDocs.map((doc, i) => (
+                      <li key={i} className="flex justify-between border-b pb-1">
+                        <span>{doc.name}</span>
+                        <span>{(doc.size / 1024).toFixed(1)} KB</span>
+                        <span>{doc.date}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+            <div className="p-1">
+              <PromptInput onSubmit={onSubmit} isLoading={isLoading} />
+            </div>
+            <footer className="p-1 flex flex-wrap items-center justify-center">
+              <button
+                className="text-blue-500 hover:underline"
+                onClick={() => setShowModal(true)}
+              >
+                New Chat
+              </button>
+            </footer>
           </div>
-        </main>
-        <div className="w-full flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-          <PromptInput onSubmit={onSubmit} isLoading={isLoading}></PromptInput>
-        </div>
-        <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-          <button
-            className="text-blue-300 hover:underline"
-            onClick={() => setShowModal(true)}
-          >
-            New Chat
-          </button>
-        </footer>
+        </section>
       </div>
     </>
   );
