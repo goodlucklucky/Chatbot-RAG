@@ -1,4 +1,6 @@
 import ReactMarkdown from 'react-markdown';
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { dark } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 interface AnswerItemProps {
   data?: string;
@@ -35,7 +37,28 @@ export default function AnswerItem({ data, onApplyUrlClick }: AnswerItemProps) {
             </button>
           );
         }
-        return <ReactMarkdown key={idx}>{part}</ReactMarkdown>;
+        return (
+          <ReactMarkdown
+            key={idx}
+            components={{
+              code({ className, children, ...rest }) {
+                const match = /language-(\w+)/.exec(className || "");
+                return match ? (
+                  <SyntaxHighlighter
+                    PreTag="div"
+                    language={match[1]}
+                    style={dark}
+                    {...rest}
+                  >
+                    {children}
+                  </SyntaxHighlighter>
+                ) : (
+                  <code {...rest} className={className}>
+                    {children}
+                  </code>
+                );
+              },
+            }}>{part}</ReactMarkdown>);
       })}
     </div>
   );
