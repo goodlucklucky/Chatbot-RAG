@@ -62,9 +62,7 @@ export default function DocxPreview({
   type ToolbarClickArgs = {
     item: {
       id: string;
-      [key: string]: any;
     };
-    [key: string]: any;
   };
 
   async function onToolbarClick(args: ToolbarClickArgs) {
