@@ -11,19 +11,19 @@ export default function DocxPreview({
   containerRef: RefObject<DocumentEditorContainerComponent | null>;
   setSelectionFlag: () => void;
 }) {
-  let saveItem = {
+  const saveItem = {
     prefixIcon: 'e-save icon',
     tooltipText: 'Save the Document',
     text: 'Save',
     id: 'save',
   };
-  let downloadItem = {
+  const downloadItem = {
     prefixIcon: 'e-download icon',
     tooltipText: 'Download the Document',
     text: 'Download',
     id: 'download',
   };
-  let items = [
+  const items = [
     'New',
     'Open',
     saveItem,
@@ -74,7 +74,7 @@ export default function DocxPreview({
         })
       }
     } else if (args.item.id == 'download') {
-      let fileName: string = localStorage.getItem("userName") ?? "sample";
+      const fileName: string = localStorage.getItem("userName") ?? "sample";
       containerRef.current?.documentEditor.save(fileName, 'Docx');
     }
   }
@@ -92,7 +92,7 @@ export default function DocxPreview({
   useEffect(() => {
     window.addEventListener('resize', updateDocumentEditorSize);
     containerRef.current?.resize(parseInt(containerRef.current?.width), window.innerHeight);
-  }, [])
+  }, [containerRef, updateDocumentEditorSize])
 
   useEffect(() => {
     async function fetchAndRenderDocx() {
@@ -112,7 +112,7 @@ export default function DocxPreview({
       }
     }
     fetchAndRenderDocx();
-  }, []);
+  }, [containerRef]);
 
   // Ctrl+Shift+L keydown event
   useEffect(() => {
@@ -128,9 +128,9 @@ export default function DocxPreview({
     document.addEventListener('keydown', handleHotkey);
     if (containerRef.current?.documentEditor) {
       containerRef.current.documentEditor.keyDown = function (args: DocumentEditorKeyDownEventArgs) {
-        let keyCode: number = args.event.which || args.event.keyCode;
-        let isCtrlKey: boolean = (args.event.ctrlKey || args.event.metaKey) ? true : keyCode === 17;
-        let isShiftKey: boolean = args.event.shiftKey ? args.event.shiftKey : keyCode === 16;
+        const keyCode: number = args.event.which || args.event.keyCode;
+        const isCtrlKey: boolean = (args.event.ctrlKey || args.event.metaKey) ? true : keyCode === 17;
+        const isShiftKey: boolean = args.event.shiftKey ? args.event.shiftKey : keyCode === 16;
         //67 is the character code for 'C' 
         if (isCtrlKey && isShiftKey && keyCode === 76) {
           //To prevent copy operation set isHandled to true 
@@ -145,7 +145,7 @@ export default function DocxPreview({
     return () => {
       document.removeEventListener('keydown', handleHotkey);
     };
-  }, [containerRef]);
+  }, [containerRef, setSelectionFlag]);
 
   function updateDocumentEditorSize() {
     //Resizes the document editor component to fit browser window.
