@@ -1,5 +1,5 @@
 "use client";
-import { DocumentEditorContainerComponent, Toolbar, WordExport, SfdtExport, Selection, Editor, DocumentEditorKeyDownEventArgs } from '@syncfusion/ej2-react-documenteditor';
+import { DocumentEditorContainerComponent, Toolbar, WordExport, SfdtExport, Selection, Editor, DocumentEditorKeyDownEventArgs, CustomToolbarItemModel } from '@syncfusion/ej2-react-documenteditor';
 import { useEffect, RefObject } from "react";
 
 //Inject require module.
@@ -11,13 +11,13 @@ export default function DocxPreview({
   containerRef: RefObject<DocumentEditorContainerComponent | null>;
   setSelectionFlag: () => void;
 }) {
-  const saveItem = {
+  const saveItem: CustomToolbarItemModel = {
     prefixIcon: 'e-save icon',
     tooltipText: 'Save the Document',
     text: 'Save',
     id: 'save',
   };
-  const downloadItem = {
+  const downloadItem: CustomToolbarItemModel = {
     prefixIcon: 'e-download icon',
     tooltipText: 'Download the Document',
     text: 'Download',
@@ -59,7 +59,13 @@ export default function DocxPreview({
     'ContentControl',
   ];
 
-  async function onToolbarClick(args) {
+  type ToolbarClickArgs = {
+    item: {
+      id: string;
+    };
+  };
+
+  async function onToolbarClick(args: ToolbarClickArgs) {
     if (args.item.id == 'save') {
       const blob = await containerRef.current?.documentEditor.saveAsBlob("Docx");
       if (blob) {
@@ -161,6 +167,7 @@ export default function DocxPreview({
         ref={containerRef}
         enableSpellCheck={true}
         serviceUrl="https://ej2services.syncfusion.com/production/web-services/api/documenteditor/"
+        // @ts-expect-error Ignore this error
         toolbarItems={items}
         toolbarClick={onToolbarClick}
         enableToolbar={true} />
