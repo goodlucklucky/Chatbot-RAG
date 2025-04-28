@@ -1,0 +1,169 @@
+"use client";
+import { DocumentEditorContainerComponent, Toolbar, WordExport, SfdtExport, Selection, Editor, DocumentEditorKeyDownEventArgs } from '@syncfusion/ej2-react-documenteditor';
+import { useEffect, RefObject } from "react";
+
+//Inject require module.
+DocumentEditorContainerComponent.Inject(Toolbar, SfdtExport, Selection, Editor, WordExport);
+export default function DocxPreview({
+  containerRef,
+  setSelectionFlag
+}: {
+  containerRef: RefObject<DocumentEditorContainerComponent | null>;
+  setSelectionFlag: () => void;
+}) {
+  let saveItem = {
+    prefixIcon: 'e-save icon',
+    tooltipText: 'Save the Document',
+    text: 'Save',
+    id: 'save',
+  };
+  let downloadItem = {
+    prefixIcon: 'e-download icon',
+    tooltipText: 'Download the Document',
+    text: 'Download',
+    id: 'download',
+  };
+  let items = [
+    'New',
+    'Open',
+    saveItem,
+    downloadItem,
+    'Separator',
+    'Undo',
+    'Redo',
+    'Separator',
+    'Image',
+    'Table',
+    'Hyperlink',
+    'Bookmark',
+    'TableOfContents',
+    'Separator',
+    'Header',
+    'Footer',
+    'PageSetup',
+    'PageNumber',
+    'Break',
+    'InsertFootnote',
+    'InsertEndnote',
+    'Separator',
+    'Find',
+    'Separator',
+    'Comments',
+    'TrackChanges',
+    'Separator',
+    'LocalClipboard',
+    'RestrictEditing',
+    'Separator',
+    'FormFields',
+    'UpdateFields',
+    'ContentControl',
+  ];
+
+  async function onToolbarClick(args) {
+    if (args.item.id == 'save') {
+      const blob = await containerRef.current?.documentEditor.saveAsBlob("Docx");
+      if (blob) {
+        const formData = new FormData();
+        formData.append('file', blob, 'document.docx');
+        formData.append('user_id', localStorage.getItem("userName") ?? '');
+
+        const url = process.env.NEXT_PUBLIC_BACKEND_URL ? process.env.NEXT_PUBLIC_BACKEND_URL : "https://chatbot-rag-1-ugmp.onrender.com"
+        await fetch(`${url}/api/save`, {
+          method: 'POST',
+          body: formData,
+        })
+      }
+    } else if (args.item.id == 'download') {
+      let fileName: string = localStorage.getItem("userName") ?? "sample";
+      containerRef.current?.documentEditor.save(fileName, 'Docx');
+    }
+  }
+
+  function arrayBufferToBase64(buffer: ArrayBuffer): string {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return window.btoa(binary);
+  }
+
+  useEffect(() => {
+    window.addEventListener('resize', updateDocumentEditorSize);
+    containerRef.current?.resize(parseInt(containerRef.current?.width), window.innerHeight);
+  }, [])
+
+  useEffect(() => {
+    async function fetchAndRenderDocx() {
+      if (!containerRef.current) return;
+      try {
+        const url = process.env.NEXT_PUBLIC_BACKEND_URL
+          ? process.env.NEXT_PUBLIC_BACKEND_URL
+          : "http://localhost:5000";
+        const response = await fetch(`${url}/downloads/${localStorage.getItem("userName")}_current.docx`);
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          const base64String = arrayBufferToBase64(arrayBuffer);
+          containerRef.current?.documentEditor.open(base64String);
+        }
+      } catch (err) {
+        console.log(err);
+      }
+    }
+    fetchAndRenderDocx();
+  }, []);
+
+  // Ctrl+Shift+L keydown event
+  useEffect(() => {
+    const handleHotkey = (event: KeyboardEvent) => {
+      // Check for Ctrl + Shift + L
+      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'l') {
+        event.preventDefault();
+        setSelectionFlag();
+      }
+
+    };
+
+    document.addEventListener('keydown', handleHotkey);
+    if (containerRef.current?.documentEditor) {
+      containerRef.current.documentEditor.keyDown = function (args: DocumentEditorKeyDownEventArgs) {
+        let keyCode: number = args.event.which || args.event.keyCode;
+        let isCtrlKey: boolean = (args.event.ctrlKey || args.event.metaKey) ? true : keyCode === 17;
+        let isShiftKey: boolean = args.event.shiftKey ? args.event.shiftKey : keyCode === 16;
+        //67 is the character code for 'C' 
+        if (isCtrlKey && isShiftKey && keyCode === 76) {
+          //To prevent copy operation set isHandled to true 
+          args.isHandled = true;
+          args.event.preventDefault();
+          setSelectionFlag();
+        }
+      }
+    }
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('keydown', handleHotkey);
+    };
+  }, [containerRef]);
+
+  function updateDocumentEditorSize() {
+    //Resizes the document editor component to fit browser window.
+    containerRef.current?.resize(parseInt(containerRef.current?.width), window.innerHeight);
+  }
+
+  return (
+    <div>
+      <DocumentEditorContainerComponent
+        id="container"
+        className="min-h-screen"
+        height="700px"
+        ref={containerRef}
+        enableSpellCheck={true}
+        serviceUrl="https://ej2services.syncfusion.com/production/web-services/api/documenteditor/"
+        toolbarItems={items}
+        toolbarClick={onToolbarClick}
+        enableToolbar={true} />
+    </div>
+  );
+}

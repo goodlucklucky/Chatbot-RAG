@@ -6,11 +6,14 @@ import clsx from "clsx";
 export default function PromptInput({
   onSubmit,
   isLoading,
+  input,
+  setInput
 }: {
   onSubmit: (que: string, file: File | null) => void;
   isLoading: boolean;
+  input: string;
+  setInput: (new_str: string) => void;
 }) {
-  const [input, setInput] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -90,7 +93,7 @@ export default function PromptInput({
         value={input}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Ask anything"
+        placeholder="Ask anything (Ctrl+Shift+L), @selection to mention current selection"
         className="flex-1 resize-none bg-transparent text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none overflow-auto"
       />
       <button
