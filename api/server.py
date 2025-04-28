@@ -452,7 +452,7 @@ def invoke_stream(question: str, user_id: str, file_path: str, start: str, end: 
             if download_flag and "---" == content.strip() and doc_writing_flag:
                 doc_writing_flag = False
                 download_url = save_docx_file(full_content.strip(), user_id)
-                download_link = f'\n📄 Download your DOCX({download_url})'
+                download_link = f'\n[📄 Download your DOCX]({download_url})'
                 full_content = ""
                 yield download_link
             if "---" == content.strip() and edit_flag and doc_writing_flag:

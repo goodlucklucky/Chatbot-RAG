@@ -6,10 +6,12 @@ import { useEffect, RefObject } from "react";
 DocumentEditorContainerComponent.Inject(Toolbar, SfdtExport, Selection, Editor, WordExport);
 export default function DocxPreview({
   containerRef,
-  setSelectionFlag
+  setSelectionFlag,
+  fetchAndRenderDocx
 }: {
   containerRef: RefObject<DocumentEditorContainerComponent | null>;
   setSelectionFlag: () => void;
+  fetchAndRenderDocx: () => void;
 }) {
   const saveItem: CustomToolbarItemModel = {
     prefixIcon: 'e-save icon',
@@ -85,40 +87,14 @@ export default function DocxPreview({
     }
   }
 
-  function arrayBufferToBase64(buffer: ArrayBuffer): string {
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    return window.btoa(binary);
-  }
-
   useEffect(() => {
     window.addEventListener('resize', updateDocumentEditorSize);
     containerRef.current?.resize(parseInt(containerRef.current?.width), window.innerHeight);
   }, [containerRef, updateDocumentEditorSize])
 
   useEffect(() => {
-    async function fetchAndRenderDocx() {
-      if (!containerRef.current) return;
-      try {
-        const url = process.env.NEXT_PUBLIC_BACKEND_URL
-          ? process.env.NEXT_PUBLIC_BACKEND_URL
-          : "http://localhost:5000";
-        const response = await fetch(`${url}/downloads/${localStorage.getItem("userName")}_current.docx`);
-        if (response.ok) {
-          const arrayBuffer = await response.arrayBuffer();
-          const base64String = arrayBufferToBase64(arrayBuffer);
-          containerRef.current?.documentEditor.open(base64String);
-        }
-      } catch (err) {
-        console.log(err);
-      }
-    }
     fetchAndRenderDocx();
-  }, [containerRef]);
+  }, []);
 
   // Ctrl+Shift+L keydown event
   useEffect(() => {
