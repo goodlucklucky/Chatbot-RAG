@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { DocumentEditorContainerComponent } from '@syncfusion/ej2-react-documenteditor';
 import PromptInput from "@/app/components/PromptInput";
 import QuestionItem from "./components/QuestionItem";
 import AnswerItem from "./components/AnswerItem";
 import NameInput from "./components/NameInputModal";
-import DocxPreview from "./components/DocxPreview";
+import PrettyDocxPreview from "./components/PrettyDocxPreview";
 
 export default function Home() {
+  const [input, setInput] = useState("");
   const [qList, setQList] = useState<string[]>([]);
   const [aList, setAList] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -17,6 +19,7 @@ export default function Home() {
     { name: string; size: number; date: string }[]
   >([]);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<DocumentEditorContainerComponent>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem("userName");
@@ -27,8 +30,23 @@ export default function Home() {
     }
   }, []);
 
+  function get_selection() {
+    const selection = containerRef.current?.documentEditor.selection;
+    selection?.selectParagraph();
+    return [selection?.startOffset, selection?.endOffset, selection?.getText(true)];
+  }
+
   const onSubmit = async (que: string, file: File | null) => {
     const bodyFormData = new FormData();
+    if (que.indexOf("@selection") >= 0) {
+      que.replaceAll("@selection", "");
+      const [start, end, selection] = get_selection();
+      if (selection && start && end) {
+        bodyFormData.append("doc_start", start);
+        bodyFormData.append("doc_end", end);
+        bodyFormData.append("doc_content", selection);
+      }
+    }
     bodyFormData.append("question", que);
     bodyFormData.append("user_id", userName);
     if (file) {
@@ -86,6 +104,25 @@ export default function Home() {
     }
   };
 
+  async function handleApplyChange(url: string) {
+    const response = await fetch(url);
+    if (response.ok) {
+      const data = await response.json();
+      const { content, start, end } = data;
+
+      // Assuming containerRef.current.documentEditor is your editor instance
+      const editor = containerRef.current?.documentEditor;
+      if (editor) {
+        editor.selection.select(start, end);
+        editor.editor.insertText(content); // Replace selection with new content
+      }
+    }
+  }
+
+  const setSelectionFlag = () => {
+    setInput(input + " @selection ");
+  }
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [qList, aList]);
@@ -93,10 +130,10 @@ export default function Home() {
   return (
     <>
       {showModal && <NameInput handleSave={handleSave} />}
-      <div className="flex flex-row min-h-screen max-h-screen bg-black w-full font-[family-name:var(--font-geist-sans)]">
+      <div className="main-panel flex flex-row min-h-screen max-h-screen bg-black w-full font-[family-name:var(--font-geist-sans)]">
         {/* Left: DOCX Preview */}
         <section className="flex-2 max-w-6xl bg-black rounded shadow-md overflow-auto">
-          <DocxPreview refreshKey={isLoading} />
+          <PrettyDocxPreview containerRef={containerRef} setSelectionFlag={setSelectionFlag} />
         </section>
         {/* Right: Chat Interface */}
         <section className="flex-1 min-w-ml overflow-auto flex">
@@ -105,7 +142,7 @@ export default function Home() {
               {qList.map((item, index) => (
                 <div key={index} className="gap-8">
                   <QuestionItem data={item} />
-                  <AnswerItem data={aList[index]} />
+                  <AnswerItem data={aList[index]} onApplyUrlClick={handleApplyChange} />
                 </div>
               ))}
               <div ref={messagesEndRef} />
@@ -125,7 +162,7 @@ export default function Home() {
               )}
             </div>
             <div className="p-1">
-              <PromptInput onSubmit={onSubmit} isLoading={isLoading} />
+              <PromptInput onSubmit={onSubmit} isLoading={isLoading} input={input} setInput={setInput} />
             </div>
             <footer className="p-1 flex flex-wrap items-center justify-center">
               <button

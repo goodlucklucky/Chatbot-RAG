@@ -1,5 +1,6 @@
 import os
 import io
+import json
 import time
 from datetime import datetime
 import hashlib
@@ -92,10 +93,15 @@ def save_docx_file(content: str, user_id: str) -> str:
     # Replace with your actual base URL
     return f"{os.environ.get('NEXT_PUBLIC_BACKEND_URL', 'http://localhost:5000')}/downloads/{filename}"
 
-def edit_docx(docx_path, para_idx, new_text):
+def edit_docx(docx_path, changes):
     doc = DocxDocument(docx_path)
-    para = doc.paragraphs[para_idx]
-    para.text = new_text
+
+    for change in changes:
+        para_idx = change["para_idx"]
+        new_text = change["new_text"]
+        para = doc.paragraphs[para_idx]
+        para.text = new_text
+
     doc.save(docx_path)
 
 def classify_intent(agent, prompt: str) -> str:
@@ -180,42 +186,22 @@ pending_edits = {}
 
 def get_docx_sections(docx_path):
     doc = DocxDocument(docx_path)
-    return [(i, para.text) for i, para in enumerate(doc.paragraphs)]
+    return [para.text for para in doc.paragraphs]
 
-def build_section_selection_prompt(docx_path, user_prompt):
-    sections = get_docx_sections(docx_path)
-    doc_text = "\n".join([f"[{i}] {text}" for i, text in sections])
-    prompt = (
-        "You are an assistant helping a user select a section of a document for editing.\n"
-        "Here is the document, divided into sections:\n"
-        f"{doc_text}\n\n"
-        f"User request: \"{user_prompt}\"\n"
-        "Based on the user's request, which section number (from the list above) do they most likely want to select? "
-        "Respond with ONLY the section number (e.g., 3)."
-    )
-    return prompt
-
-def select_section_logic(agent, docx_path, user_id, user_prompt):
-    prompt = build_section_selection_prompt(docx_path, user_prompt)
-    config = {"configurable": {"thread_id": user_id}}
-    response = agent.invoke({"messages": [HumanMessage(content=prompt)]}, config=config)
-    content = response.get("messages")[-1].content
-    try:
-        para_idx = int(content.strip())
-    except Exception:
-        return None, None
-    sections = get_docx_sections(docx_path)
-    _, para_text = sections[para_idx]
-    return para_idx, para_text
-
-def invoke_stream(question: str, user_id: str, file_path: str):
-    docx_path = os.path.join("downloads", f"{user_id}_current.docx")
+def invoke_stream(question: str, user_id: str, file_path: str, start: str, end: str, content: str):
+    if start and end and content:
+        pending_edits[user_id] = {
+            "start": start,
+            "end": end,
+            "content": content,
+            "new_content": None,
+        }
 
     if os.path.exists(file_path):
         print("Loading and chunking contents of the file")
         if file_path.endswith(".doc") or file_path.endswith(".docx"):
             docs = DocxDocument(file_path)
-            docs.save(docx_path)
+            docs = [Document(page_content=para.text) for para in docs.paragraphs]
         else:
             docs = load_documents(file_path)
     else:
@@ -259,7 +245,7 @@ def invoke_stream(question: str, user_id: str, file_path: str):
     config = {"configurable": {"thread_id": user_id}}
 
     full_content = ""  # <-- Accumulate content here
-    guide = (
+    gen_guide = (
         "You're an AI assistant helping user write the document."
         "If the user wants to generate or edit a document file, "
         "include ONLY the formal document content between the --- and --- markers. "
@@ -267,86 +253,152 @@ def invoke_stream(question: str, user_id: str, file_path: str):
         "Only wrap formal document content in these markers. Keep anything else outside."
         "Format the document with proper headings, bullet points, or numbered sections if needed. \n\n"
     )
+    guide = (
+        "You are an AI assistant for document editing. Your job is to help the user select, review, and edit sections of a document interactively. Follow these instructions for all interactions:\n\n"
+        "1. **Section Selection**\n"
+        "   - If the user asks to select or review a section, analyze the document structure and their request.\n"
+        "   - Identify the most relevant section or paragraph.\n"
+        "   - Clearly display the selected section's content to the user, including its index or identifier if possible.\n"
+
+        "2. **Editing**\n"
+        "   - If the user provides an edit instruction (e.g., \"make this more concise\", \"change the tone\", etc.), apply the requested changes ONLY to the previously selected or discussed section.\n"
+        "   - Present the revised text clearly, and mark it as the new version for that section.\n"
+
+        "3. **Confirmation**\n"
+        "   - After suggesting an edit, always ask the user if they want to accept or reject the change.\n"
+        "   - If the user accepts, confirm the change and state that it will be applied to the document.\n"
+        "   - If the user rejects, revert to the previous version and ask for further instructions if needed.\n"
+
+        "4. **Formatting**\n"
+        "   - When returning edited document content, always wrap the formal document content between lines containing only three dashes (`---`), with nothing else on those lines. Do not break the marker across multiple tokens or stream it character by character.\n"
+        "   - All other explanations, confirmations, or questions should be outside the `---` markers.\n"
+        "   - Do not format the document.\n"
+
+        "5. **State Management**\n"
+        "   - Remember the current section being discussed and its latest version based on the conversation history.\n"
+        "   - Do not ask the user to repeat information already provided in the chat history.\n"
+
+        "6. **Examples:**\n"
+        "   - User: \"Edit the introduction to be more formal.\""
+        '- AI: "Here is the revised introduction:\n---\n[Revised introduction text]\n---\nWould you like to accept this change?"'
+
+        '- User: "Yes, apply it."'
+        '- AI: "✅ Change applied to the introduction. Let me know if you want to edit another section."'
+
+        '- User: "No, revert."'
+        '- AI: "❌ Change discarded. The introduction remains as before. What would you like to do next?"'
+
+        "7. **General Rules:**\n"
+        "- Always be clear about which section you are editing.\n"
+        "- Always use the `---` markers for document content.\n"
+        "- Never lose track of the current section or the user's last instruction.\n"
+        "- If unsure, ask clarifying questions.\n"
+    )
     doc_writing_flag = False
     edit_flag = False
     download_flag = False
     prompt = question
-
     intent = classify_intent(agent_executor, question)
     if intent in ["create_document", "download_document", "export_document"]:
-        prompt = guide + question
+        prompt = gen_guide + question
         download_flag = True
-    print("intent:", intent)
+    elif start and end and content:
+        prompt = guide + "\n\nHere's the content of the selected document: \n\n" + content + question
 
-    if not os.path.exists(docx_path) and intent in ["select_section", "suggest_section", "confirm_section", "edit_section", "continue_editing", "reject_change", "accept_change"]:
-        yield "I need a document to work with. Please upload one."
-        return
-
-    if intent in ["select_section", "suggest_section"]:
-        para_idx, para_text = select_section_logic(agent_executor, docx_path, user_id, question)
-        if para_text:
-            pending_edits[user_id] = {
-                "para_idx": para_idx,
-                "orig_text": para_text,
-                "new_text": None,
-                "updated_date": datetime.now().isoformat()
-            }
-            yield f"Do you want to modify this section?\r\n\r\n{para_text}\r\n\r\n."
-        else:
-            yield "Sorry, I couldn't identify the section. Please clarify your request."
-        return
-    if intent == "confirm_section":
-        edit_info = pending_edits.get(user_id)
-        if edit_info and edit_info.get("orig_text"):
-            edit_info["updated_date"] = datetime.now().isoformat()
-            yield f"Now, please tell me about what you want to change.\r\n\r\n{edit_info['orig_text']}\r\n\r\n."
-        else:
-            yield "No section to confirm. Please select a section first."
-        return
     if intent in ["edit_section", "continue_editing"]:
         edit_info = pending_edits.get(user_id)
-        if not edit_info or "para_idx" not in edit_info:
+        if not edit_info or "content" not in edit_info:
             yield "Please select a section you want to edit."
             return
         
-        orig_text = edit_info["orig_text"]
+        orig_text = edit_info["content"]
         prompt = (
-            "If the user wants to edit a section or paragraph text, "
-            "include ONLY the formal edited content between the --- and --- markers. "
-            "Do NOT break the markers across multiple tokens or stream them character-by-character. "
-            "Only wrap formal edited content in these markers. Keep anything else outside."
-            "Format the document content with proper headings, bullet points, or numbered sections if needed."
-            f"Edit the following paragraph according to the instruction: {question}\r\nParagraph: {orig_text}"
+            "You are an AI assistant for document editing. "
+            "The user wants to edit a section or paragraph of a document."
+            "First, explain briefly what you changed or how you improved the content."
+            "Then, present ONLY the formal edited content between lines containing only three dashes (`---`)."
+            "Do NOT break the markers across multiple tokens or stream them character by character."
+            "Keep explanations, confirmations, or questions outside the `---` markers."
+            "Do not format the document content.\n\n"
+            f"Edit the following content according to the instruction: {question}\nContent: {orig_text}\n"
+            "After presenting the revised content, ask the user if they want to accept or reject this change."
         )
         edit_flag = True
 
-    # Accept Change Flow
-    if intent == "accept_change":
-        edit_info = pending_edits.get(user_id)
-        if not edit_info or "new_text" not in edit_info:
-            yield "No pending changes to accept."
-            return
-        
-        # Apply the edit
-        edit_docx(docx_path, edit_info["para_idx"], edit_info["new_text"])
-        download_url = f"{os.environ.get('NEXT_PUBLIC_BACKEND_URL', 'http://localhost:5000')}/downloads/{user_id}_current.docx"
-        download_link = f"\n📄 Download your DOCX({download_url})"
-        
-        # Clear pending edits
-        del pending_edits[user_id]
-        yield f"✅ Change applied successfully! The document has been updated.{download_link}"
-        return
+    # if not os.path.exists(docx_path) and intent in ["select_section", "suggest_section", "confirm_section", "edit_section", "continue_editing", "reject_change", "accept_change"]:
+    #     yield "I need a document to work with. Please upload one."
+    #     return
 
-    # Reject Change Flow 
-    if intent == "reject_change":
-        if user_id in pending_edits:
-            # Clear the proposed edit but keep section selection
-            if "new_text" in pending_edits[user_id]:
-                del pending_edits[user_id]["new_text"]
-            yield "❌ Change discarded. The document remains unchanged."
-        else:
-            yield "No pending changes to reject."
-        return
+    # if intent == "accept_change":
+    #     download_url = f"{os.environ.get('NEXT_PUBLIC_BACKEND_URL', 'http://localhost:5000')}/downloads/{user_id}_current.docx"
+    #     download_link = f"\n📄 Download your DOCX({download_url})"
+    #     yield f"✅ Change applied successfully! The document has been updated.{download_link}"
+    #     return
+
+    # if intent in ["select_section", "suggest_section"]:
+    #     para_idx, para_text = select_section_logic(agent_executor, docx_path, user_id, question)
+    #     if para_text:
+    #         pending_edits[user_id] = {
+    #             "para_idx": para_idx,
+    #             "orig_text": para_text,
+    #             "new_text": None,
+    #             "updated_date": datetime.now().isoformat()
+    #         }
+    #         yield f"Do you want to modify this section?\r\n\r\n{para_text}\r\n\r\n."
+    #     else:
+    #         yield "Sorry, I couldn't identify the section. Please clarify your request."
+    #     return
+    # if intent == "confirm_section":
+    #     edit_info = pending_edits.get(user_id)
+    #     if edit_info and edit_info.get("orig_text"):
+    #         edit_info["updated_date"] = datetime.now().isoformat()
+    #         yield f"Now, please tell me about what you want to change.\r\n\r\n{edit_info['orig_text']}\r\n\r\n."
+    #     else:
+    #         yield "No section to confirm. Please select a section first."
+    #     return
+    # if intent in ["edit_section", "continue_editing"]:
+    #     edit_info = pending_edits.get(user_id)
+    #     if not edit_info or "para_idx" not in edit_info:
+    #         yield "Please select a section you want to edit."
+    #         return
+        
+    #     orig_text = edit_info["orig_text"]
+    #     prompt = (
+    #         "If the user wants to edit a section or paragraph text, "
+    #         "include ONLY the formal edited content between the --- and --- markers. "
+    #         "Do NOT break the markers across multiple tokens or stream them character-by-character. "
+    #         "Only wrap formal edited content in these markers. Keep anything else outside."
+    #         "Format the document content with proper headings, bullet points, or numbered sections if needed."
+    #         f"Edit the following paragraph according to the instruction: {question}\r\nParagraph: {orig_text}"
+    #     )
+    #     edit_flag = True
+
+    # # Accept Change Flow
+    # if intent == "accept_change":
+    #     edit_info = pending_edits.get(user_id)
+    #     if not edit_info or "new_text" not in edit_info:
+    #         yield "No pending changes to accept."
+    #         return
+        
+        # # Apply the edit
+        # edit_docx(docx_path, edit_info["para_idx"], edit_info["new_text"])
+        # download_url = f"{os.environ.get('NEXT_PUBLIC_BACKEND_URL', 'http://localhost:5000')}/downloads/{user_id}_current.docx"
+        # download_link = f"\n📄 Download your DOCX({download_url})"
+        
+    #     # Clear pending edits
+    #     del pending_edits[user_id]
+    #     yield f"✅ Change applied successfully! The document has been updated.{download_link}"
+
+    # # Reject Change Flow 
+    # if intent == "reject_change":
+    #     if user_id in pending_edits:
+    #         # Clear the proposed edit but keep section selection
+    #         if "new_text" in pending_edits[user_id]:
+    #             del pending_edits[user_id]["new_text"]
+    #         yield "❌ Change discarded. The document remains unchanged."
+    #     else:
+    #         yield "No pending changes to reject."
+    #     return
 
     for message_chunk, metadata in agent_executor.stream(
         {"messages": [HumanMessage(content=prompt)]}, config=config, stream_mode="messages"
@@ -361,7 +413,7 @@ def invoke_stream(question: str, user_id: str, file_path: str):
                 yield download_link
             if "---" == content.strip() and edit_flag and doc_writing_flag:
                 doc_writing_flag = False
-                pending_edits[user_id]["new_text"] = full_content
+                pending_edits[user_id]["new_content"] = full_content
                 full_content = ""
             if doc_writing_flag:
                 full_content += content
@@ -371,3 +423,11 @@ def invoke_stream(question: str, user_id: str, file_path: str):
                 yield content
             if (edit_flag or download_flag) and "---" == content.strip():
                 doc_writing_flag = True
+
+    if intent in ["edit_section", "continue_editing"]:
+        backend_url = os.environ.get('NEXT_PUBLIC_BACKEND_URL', 'http://localhost:5000')
+        content_url = f"{backend_url}/apply_change?user_id={user_id}"
+        yield f"\nApply your change({content_url})"
+
+def get_pending_edits(user_id: str):
+    return pending_edits[user_id]

@@ -10,6 +10,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@syncfusion/ej2-react-documenteditor": "^29.1.39",
     "clsx": "^2.1.1",
     "docx-preview": "^0.3.5",
     "next": "15.2.4",
