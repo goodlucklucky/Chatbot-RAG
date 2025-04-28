@@ -1,6 +1,8 @@
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { dark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { materialDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+// @ts-expect-error next line is not error
+import { CodeProps } from "react-markdown/lib/ast-to-react";
 
 interface AnswerItemProps {
   data?: string;
@@ -41,24 +43,27 @@ export default function AnswerItem({ data, onApplyUrlClick }: AnswerItemProps) {
           <ReactMarkdown
             key={idx}
             components={{
-              code({ className, children, ...rest }) {
+              code({ node, inline, className, children, style, ...props } : CodeProps) {
                 const match = /language-(\w+)/.exec(className || "");
-                return match ? (
+
+                return !inline && match ? (
                   <SyntaxHighlighter
+                    style={materialDark}
                     PreTag="div"
                     language={match[1]}
-                    style={dark}
-                    {...rest}
-                  >
-                    {children}
-                  </SyntaxHighlighter>
+                    children={String(children).replace(/\n$/, "")}
+                    {...props}
+                  />
                 ) : (
-                  <code {...rest} className={className}>
+                  <code className={className ? className : ""} {...props}>
                     {children}
                   </code>
                 );
-              },
-            }}>{part}</ReactMarkdown>);
+              }
+            }}>
+            {part}
+          </ReactMarkdown>
+        );
       })}
     </div>
   );
