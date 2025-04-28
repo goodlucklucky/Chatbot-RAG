@@ -59,7 +59,15 @@ export default function DocxPreview({
     'ContentControl',
   ];
 
-  async function onToolbarClick(args) {
+  type ToolbarClickArgs = {
+    item: {
+      id: string;
+      [key: string]: any;
+    };
+    [key: string]: any;
+  };
+
+  async function onToolbarClick(args: ToolbarClickArgs) {
     if (args.item.id == 'save') {
       const blob = await containerRef.current?.documentEditor.saveAsBlob("Docx");
       if (blob) {
