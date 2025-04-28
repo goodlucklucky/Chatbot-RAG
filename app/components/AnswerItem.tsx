@@ -43,7 +43,7 @@ export default function AnswerItem({ data, onApplyUrlClick }: AnswerItemProps) {
           <ReactMarkdown
             key={idx}
             components={{
-              code({ node, inline, className, children, style, ...props } : CodeProps) {
+              code({ inline, className, children, ...props }: CodeProps) {
                 const match = /language-(\w+)/.exec(className || "");
 
                 return !inline && match ? (
@@ -51,9 +51,10 @@ export default function AnswerItem({ data, onApplyUrlClick }: AnswerItemProps) {
                     style={materialDark}
                     PreTag="div"
                     language={match[1]}
-                    children={String(children).replace(/\n$/, "")}
                     {...props}
-                  />
+                  >
+                    {String(children).replace(/\n$/, "")}
+                  </SyntaxHighlighter>
                 ) : (
                   <code className={className ? className : ""} {...props}>
                     {children}
