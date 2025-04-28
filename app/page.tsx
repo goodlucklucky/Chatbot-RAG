@@ -36,6 +36,33 @@ export default function Home() {
     return [selection?.startOffset, selection?.endOffset, selection?.getText(true)];
   }
 
+  function arrayBufferToBase64(buffer: ArrayBuffer): string {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return window.btoa(binary);
+  }
+
+  async function fetchAndRenderDocx() {
+    if (!containerRef.current) return;
+    try {
+      const url = process.env.NEXT_PUBLIC_BACKEND_URL
+        ? process.env.NEXT_PUBLIC_BACKEND_URL
+        : "http://localhost:5000";
+      const response = await fetch(`${url}/downloads/${localStorage.getItem("userName")}_current.docx`);
+      if (response.ok) {
+        const arrayBuffer = await response.arrayBuffer();
+        const base64String = arrayBufferToBase64(arrayBuffer);
+        containerRef.current?.documentEditor.open(base64String);
+      }
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
   const onSubmit = async (que: string, file: File | null) => {
     const bodyFormData = new FormData();
     if (que.indexOf("@selection") >= 0) {
@@ -90,6 +117,9 @@ export default function Home() {
         return updated;
       });
     }
+    if (fullText.indexOf("Download your DOCX") >= 0) {
+      fetchAndRenderDocx();
+    }
     setIsLoading(false);
   };
 
@@ -133,7 +163,7 @@ export default function Home() {
       <div className="main-panel flex flex-row min-h-screen max-h-screen bg-black w-full font-[family-name:var(--font-geist-sans)]">
         {/* Left: DOCX Preview */}
         <section className="flex-2 max-w-6xl bg-black rounded shadow-md overflow-auto">
-          <PrettyDocxPreview containerRef={containerRef} setSelectionFlag={setSelectionFlag} />
+          <PrettyDocxPreview containerRef={containerRef} setSelectionFlag={setSelectionFlag} fetchAndRenderDocx={fetchAndRenderDocx} />
         </section>
         {/* Right: Chat Interface */}
         <section className="flex-1 min-w-ml overflow-auto flex">
