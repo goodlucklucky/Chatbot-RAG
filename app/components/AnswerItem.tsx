@@ -1,3 +1,8 @@
+interface AnswerItemProps {
+  data?: string;
+  onApplyUrlClick: (url: string) => void;
+}
+
 export default function AnswerItem({ data, onApplyUrlClick }: AnswerItemProps) {
   // Regex to match the apply url, e.g., "Apply your change(http://...)"
   const applyUrlRegex = /Apply your change\((https?:\/\/[^\)]+)\)/g;
