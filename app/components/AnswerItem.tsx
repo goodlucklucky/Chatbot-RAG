@@ -35,7 +35,7 @@ export default function AnswerItem({ data, onApplyUrlClick }: AnswerItemProps) {
               className="bg-white text-blue-700 font-semibold px-4 py-2 rounded shadow border border-blue-200 transition hover:bg-blue-600 hover:text-white cursor-pointer"
               onClick={() => onApplyUrlClick(url)}
             >
-              Apply change
+              Apply this change to the editor
             </button>
           );
         }

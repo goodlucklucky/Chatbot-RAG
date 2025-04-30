@@ -119,6 +119,12 @@ export default function DocxPreview({
           args.isHandled = true;
           args.event.preventDefault();
           setSelectionFlag();
+          const helper = containerRef.current?.documentEditor.documentHelper;
+          if(helper) {
+            helper.viewerContainer.addEventListener('scroll', () => {
+              console.log(containerRef.current?.documentEditor.selection);
+            })
+          }
         }
       }
     }

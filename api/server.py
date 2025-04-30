@@ -232,7 +232,7 @@ def get_docx_sections(docx_path):
     doc = DocxDocument(docx_path)
     return [para.text for para in doc.paragraphs]
 
-def invoke_stream(question: str, user_id: str, file_path: str, start: str, end: str, content: str):
+def invoke_stream(question: str, user_id: str, file_path: str, start: str, end: str, content: list[str]):
     if start and end and content:
         pending_edits[user_id] = {
             "start": start,
@@ -347,7 +347,8 @@ def invoke_stream(question: str, user_id: str, file_path: str, start: str, end: 
         prompt = gen_guide + question
         download_flag = True
     elif start and end and content:
-        prompt = guide + "\n\nHere's the content of the selected document: \n\n" + content + question
+        temp_content_str = "\n".join(content) + "\n"
+        prompt = guide + "\n\nHere's the content of the selected document: \n\n" + temp_content_str + question
 
     if intent in ["edit_section", "continue_editing"]:
         edit_info = pending_edits.get(user_id)
@@ -359,90 +360,16 @@ def invoke_stream(question: str, user_id: str, file_path: str, start: str, end: 
         prompt = (
             "You are an AI assistant for document editing. "
             "The user wants to edit a section or paragraph of a document."
-            "First, explain briefly what you changed or how you improved the content."
-            "Then, present ONLY the formal edited content between lines containing only three dashes (`---`)."
+            "The original content is provided as a list of paragraphs (in JSON array format). "
+            "Edit each paragraph as needed according to the user's instruction, but do not merge or split paragraphs. "
+            "Return ONLY the revised paragraphs as a JSON array, preserving the number and order of paragraphs. "
+            "Do NOT include any explanations, just the JSON array between lines containing only three dashes (`---`). "
             "Do NOT break the markers across multiple tokens or stream them character by character."
-            "Keep explanations, confirmations, or questions outside the `---` markers."
-            "Do not format the document content.\n\n"
-            f"Edit the following content according to the instruction: {question}\nContent: {orig_text}\n"
+            "\n\n"
+            f"Edit the following content according to the instruction: {question}\nParagraph list: {json.dumps(orig_text)}\n"
             "After presenting the revised content, ask the user if they want to accept or reject this change."
         )
         edit_flag = True
-
-    # if not os.path.exists(docx_path) and intent in ["select_section", "suggest_section", "confirm_section", "edit_section", "continue_editing", "reject_change", "accept_change"]:
-    #     yield "I need a document to work with. Please upload one."
-    #     return
-
-    # if intent == "accept_change":
-    #     download_url = f"{os.environ.get('NEXT_PUBLIC_BACKEND_URL', 'http://localhost:5000')}/downloads/{user_id}_current.docx"
-    #     download_link = f"\n📄 Download your DOCX({download_url})"
-    #     yield f"✅ Change applied successfully! The document has been updated.{download_link}"
-    #     return
-
-    # if intent in ["select_section", "suggest_section"]:
-    #     para_idx, para_text = select_section_logic(agent_executor, docx_path, user_id, question)
-    #     if para_text:
-    #         pending_edits[user_id] = {
-    #             "para_idx": para_idx,
-    #             "orig_text": para_text,
-    #             "new_text": None,
-    #             "updated_date": datetime.now().isoformat()
-    #         }
-    #         yield f"Do you want to modify this section?\r\n\r\n{para_text}\r\n\r\n."
-    #     else:
-    #         yield "Sorry, I couldn't identify the section. Please clarify your request."
-    #     return
-    # if intent == "confirm_section":
-    #     edit_info = pending_edits.get(user_id)
-    #     if edit_info and edit_info.get("orig_text"):
-    #         edit_info["updated_date"] = datetime.now().isoformat()
-    #         yield f"Now, please tell me about what you want to change.\r\n\r\n{edit_info['orig_text']}\r\n\r\n."
-    #     else:
-    #         yield "No section to confirm. Please select a section first."
-    #     return
-    # if intent in ["edit_section", "continue_editing"]:
-    #     edit_info = pending_edits.get(user_id)
-    #     if not edit_info or "para_idx" not in edit_info:
-    #         yield "Please select a section you want to edit."
-    #         return
-        
-    #     orig_text = edit_info["orig_text"]
-    #     prompt = (
-    #         "If the user wants to edit a section or paragraph text, "
-    #         "include ONLY the formal edited content between the --- and --- markers. "
-    #         "Do NOT break the markers across multiple tokens or stream them character-by-character. "
-    #         "Only wrap formal edited content in these markers. Keep anything else outside."
-    #         "Format the document content with proper headings, bullet points, or numbered sections if needed."
-    #         f"Edit the following paragraph according to the instruction: {question}\r\nParagraph: {orig_text}"
-    #     )
-    #     edit_flag = True
-
-    # # Accept Change Flow
-    # if intent == "accept_change":
-    #     edit_info = pending_edits.get(user_id)
-    #     if not edit_info or "new_text" not in edit_info:
-    #         yield "No pending changes to accept."
-    #         return
-        
-        # # Apply the edit
-        # edit_docx(docx_path, edit_info["para_idx"], edit_info["new_text"])
-        # download_url = f"{os.environ.get('NEXT_PUBLIC_BACKEND_URL', 'http://localhost:5000')}/downloads/{user_id}_current.docx"
-        # download_link = f"\n📄 Download your DOCX({download_url})"
-        
-    #     # Clear pending edits
-    #     del pending_edits[user_id]
-    #     yield f"✅ Change applied successfully! The document has been updated.{download_link}"
-
-    # # Reject Change Flow 
-    # if intent == "reject_change":
-    #     if user_id in pending_edits:
-    #         # Clear the proposed edit but keep section selection
-    #         if "new_text" in pending_edits[user_id]:
-    #             del pending_edits[user_id]["new_text"]
-    #         yield "❌ Change discarded. The document remains unchanged."
-    #     else:
-    #         yield "No pending changes to reject."
-    #     return
 
     for message_chunk, metadata in agent_executor.stream(
         {"messages": [HumanMessage(content=prompt)]}, config=config, stream_mode="messages"
@@ -457,12 +384,11 @@ def invoke_stream(question: str, user_id: str, file_path: str, start: str, end: 
                 yield download_link
             if "---" == content.strip() and edit_flag and doc_writing_flag:
                 doc_writing_flag = False
-                pending_edits[user_id]["new_content"] = full_content
+                pending_edits[user_id]["new_content"] = json.loads(full_content)
                 full_content = ""
+                yield "\r\n".join(pending_edits[user_id]["new_content"])
             if doc_writing_flag:
                 full_content += content
-                if edit_flag:
-                    yield content
             elif "---" != content.strip() or download_flag == False:
                 yield content
             if (edit_flag or download_flag) and "---" == content.strip():

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { DocumentEditorContainerComponent } from '@syncfusion/ej2-react-documenteditor';
+import { DocumentEditorContainerComponent, ParagraphWidget } from '@syncfusion/ej2-react-documenteditor';
 import PromptInput from "@/app/components/PromptInput";
 import QuestionItem from "./components/QuestionItem";
 import AnswerItem from "./components/AnswerItem";
@@ -20,6 +20,7 @@ export default function Home() {
   >([]);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<DocumentEditorContainerComponent>(null);
+  const [pendingEdit, setPendingEdit] = useState<{ origin: ParagraphWidget[], new: ParagraphWidget[] }>({ origin: [], new: [] });
 
   useEffect(() => {
     const stored = localStorage.getItem("userName");
@@ -33,7 +34,21 @@ export default function Home() {
   function get_selection() {
     const selection = containerRef.current?.documentEditor.selection;
     selection?.selectParagraph();
-    return [selection?.startOffset, selection?.endOffset, selection?.getText(true)];
+    const paraList: string[] = [];
+    if (selection) {
+      const totalString: string = selection.getText(true);
+      const start: string = selection.startOffset;
+      const end: string = selection.endOffset;
+      const selectedParas: ParagraphWidget[] = selection?.getParagraphsInSelection();
+      for (let i = 0; i < selectedParas.length; i++) {
+        selection.selectParagraphInternal(selectedParas[i], true);
+        selection.selectParagraph();
+        paraList.push(selection.getText(true));
+      }
+      selection.select(start, end);
+      return { start, end, totalString, paraList };
+    }
+    return { start: "0;0;0", end: "0;0;0", totalString: "", paraList: [] };
   }
 
   function arrayBufferToBase64(buffer: ArrayBuffer): string {
@@ -66,12 +81,12 @@ export default function Home() {
   const onSubmit = async (que: string, file: File | null) => {
     const bodyFormData = new FormData();
     if (que.indexOf("@selection") >= 0) {
-      que.replaceAll("@selection", "");
-      const [start, end, selection] = get_selection();
-      if (selection && start && end) {
-        bodyFormData.append("doc_start", start);
-        bodyFormData.append("doc_end", end);
-        bodyFormData.append("doc_content", selection);
+      que = que.replaceAll("@selection ", "");
+      const selection = get_selection();
+      if (selection.totalString.length) {
+        bodyFormData.append("doc_start", selection.start);
+        bodyFormData.append("doc_end", selection.end);
+        bodyFormData.append("doc_content", JSON.stringify(selection.paraList));
       }
     }
     bodyFormData.append("question", que);
@@ -144,10 +159,113 @@ export default function Home() {
       const editor = containerRef.current?.documentEditor;
       if (editor) {
         editor.selection.select(start, end);
-        editor.editor.insertText(content); // Replace selection with new content
+        const selectedParas: ParagraphWidget[] = editor.selection.getParagraphsInSelection();
+        const origParas: ParagraphWidget[] = [];
+        const newParas: ParagraphWidget[] = [];
+        for (let i = selectedParas.length - 1; i >= 0; i--) {
+          editor.selection?.selectParagraphInternal(selectedParas[i], true);
+          editor.selection.selectParagraph();
+          const orig_text = editor.selection.getText(false);
+          if (orig_text.trim() == content[i].trim()) {
+            continue;
+          }
+          origParas.unshift(editor.selection.start.paragraph);
+          editor.selection.toggleHighlightColor("Red");
+          editor.selection?.selectParagraphInternal(selectedParas[i], true);
+          editor.editor.insertText(content[i]);
+          editor.selection.moveToPreviousParagraph();
+          editor.selection.selectParagraph();
+          newParas.unshift(editor.selection.start.paragraph);
+          editor.selection.characterFormat.copyFormat(selectedParas[i].characterFormat);
+          editor.selection.paragraphFormat.copyFormat(selectedParas[i].paragraphFormat);
+          editor.selection.toggleHighlightColor("BrightGreen");
+        }
+        setPendingEdit({ origin: origParas, new: newParas });
+
       }
     }
   }
+
+  useEffect(() => {
+    const editor = containerRef.current?.documentEditor;
+    if (editor) {
+      const helper = editor.documentHelper;
+      helper.viewerContainer.querySelectorAll(".apply-container").forEach(el => el.remove());
+      console.log(pendingEdit);
+      for (let i = 0; i < pendingEdit.origin.length; i++) {
+        editor.selection.selectParagraphInternal(pendingEdit.new[i], true);
+        const width = editor.selection.getSelectionPage(editor.selection.end).boundingRectangle.width - editor.selection.sectionFormat.leftMargin - editor.selection.sectionFormat.rightMargin;
+        const containerEl = document.createElement("div");
+        const rejectEl = document.createElement("button");
+        rejectEl.innerText = "Reject";
+        rejectEl.setAttribute("class", "reject-button");
+        rejectEl.setAttribute("style", `
+          width: 40px;
+          height: 20px;
+          cursor: pointer;
+          color: white;
+          background: darkred;
+          border-radius: 2px 2px 0 0;
+          text-align: center;
+          float: right;
+        `);
+        rejectEl.addEventListener("click", () => {
+          editor.selection.selectParagraphInternal(pendingEdit.new[i], true);
+          editor.selection.selectParagraph();
+          editor.editor.delete();
+          editor.selection.selectParagraphInternal(pendingEdit.origin[i], true);
+          editor.selection.selectParagraph();
+          editor.selection.characterFormat.highlightColor="NoColor";
+          editor.selection.moveToParagraphStart();
+          setPendingEdit({
+            origin: pendingEdit.origin.filter((_, idx) => idx !== i),
+            new: pendingEdit.new.filter((_, idx) => idx !== i)
+          });
+        })
+        containerEl.appendChild(rejectEl);
+        const applyEl = document.createElement("button");
+        applyEl.innerText = "Apply";
+        applyEl.setAttribute("class", "apply-button");
+        applyEl.setAttribute("style", `
+          width: 40px;
+          height: 20px;
+          cursor: pointer;
+          color: white;
+          background: green;
+          border-radius: 2px 2px 0 0;
+          text-align: center;
+          float: right;
+        `);
+        applyEl.addEventListener("click", () => {
+          editor.selection.selectParagraphInternal(pendingEdit.origin[i], true);
+          editor.selection.selectParagraph();
+          editor.editor.delete();
+          editor.selection.selectParagraphInternal(pendingEdit.new[i], true);
+          editor.selection.selectParagraph();
+          editor.selection.characterFormat.highlightColor="NoColor";
+          editor.selection.moveToParagraphStart();
+          setPendingEdit({
+            origin: pendingEdit.origin.filter((_, idx) => idx !== i),
+            new: pendingEdit.new.filter((_, idx) => idx !== i)
+          });
+        })
+        containerEl.appendChild(applyEl);
+        containerEl.setAttribute("class", "apply-container");
+        containerEl.setAttribute(
+          "style",
+          `position: absolute;
+          left: ${editor.selection.caret.style.left};
+          top: ${parseInt(editor.selection.caret.style.top.replace("px", "")) - 20}px;
+          z-index: 1000;
+          height: 20px;
+          line-height: 20px;
+          width: ${width}px;
+          border-bottom: red 1px solid;`
+        );
+        helper.viewerContainer.appendChild(containerEl);
+      }
+    }
+  }, [pendingEdit])
 
   const setSelectionFlag = () => {
     setInput(input + " @selection ");
@@ -176,6 +294,7 @@ export default function Home() {
                 </div>
               ))}
               <div ref={messagesEndRef} />
+              <div className="fixed top-0 left-0 w-10 h-10 bg-black opacity-50 z-50">a</div>
               {uploadedDocs.length > 0 && (
                 <div className="w-full text-sm text-gray-600">
                   <h3 className="font-semibold mb-2">Uploaded Documents</h3>
