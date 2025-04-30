@@ -5,7 +5,7 @@ import os
 import json
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=["*"])
 
 UPLOAD_FOLDER = "data"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
