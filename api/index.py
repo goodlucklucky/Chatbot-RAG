@@ -17,9 +17,12 @@ def chat():
     file = request.files.get("file")
     start = request.form.get("doc_start")
     end = request.form.get("doc_end")
-    content = json.loads(request.form.get("doc_content"))
+    content_req = request.form.get("doc_content")
+    content = None
+    if isinstance(content_req, str):
+        content = json.loads(content_req)
     file_path = ""
-    if (file):
+    if file:
         _, ext = os.path.splitext(file.filename)
         file_path = os.path.join(UPLOAD_FOLDER, "sample" + ext)
         file.save(file_path)

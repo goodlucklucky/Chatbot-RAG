@@ -294,7 +294,6 @@ export default function Home() {
                 </div>
               ))}
               <div ref={messagesEndRef} />
-              <div className="fixed top-0 left-0 w-10 h-10 bg-black opacity-50 z-50">a</div>
               {uploadedDocs.length > 0 && (
                 <div className="w-full text-sm text-gray-600">
                   <h3 className="font-semibold mb-2">Uploaded Documents</h3>
