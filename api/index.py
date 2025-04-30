@@ -2,6 +2,7 @@ from flask import Flask, request, Response, send_from_directory, abort, jsonify
 from flask_cors import CORS
 from api.server import invoke_stream, get_pending_edits
 import os
+import json
 
 app = Flask(__name__)
 CORS(app)
@@ -16,7 +17,7 @@ def chat():
     file = request.files.get("file")
     start = request.form.get("doc_start")
     end = request.form.get("doc_end")
-    content = request.form.get("doc_content")
+    content = json.loads(request.form.get("doc_content"))
     file_path = ""
     if (file):
         _, ext = os.path.splitext(file.filename)
